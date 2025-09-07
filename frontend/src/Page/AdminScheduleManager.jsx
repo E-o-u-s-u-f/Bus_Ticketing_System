@@ -17,13 +17,11 @@ export default function AdminScheduleManager() {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
 
-  // Combine date + time into SQL Server datetime string
   const dtimeFromParts = () => {
     if (!date || !time) return null;
-    return `${date} ${time}:00`; // "YYYY-MM-DD HH:MM:SS"
+    return `${date} ${time}:00`;
   };
 
-  // Reset form
   const reset = () => {
     setMode("create");
     setScheid("");
@@ -34,52 +32,49 @@ export default function AdminScheduleManager() {
     setTime("");
   };
 
-useEffect(() => {
-  (async () => {
-    try {
-      setLoading(true);
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
 
-      const [rRes, bRes, sRes] = await Promise.all([
-        fetch("http://localhost:5000/api/admin/routes"), // full URL
-        fetch("http://localhost:5000/api/admin/bus?status=active"), // make consistent
-        fetch("http://localhost:5000/api/admin/schedule"),          // make consistent
-      ]);
+        const [rRes, bRes, sRes] = await Promise.all([
+          fetch("http://localhost:5000/api/admin/routes"),
+          fetch("http://localhost:5000/api/admin/bus?status=active"),
+          fetch("http://localhost:5000/api/admin/schedule"),
+        ]);
 
-      const rData = await rRes.json();
-      const bData = await bRes.json();
-      const sData = await sRes.json();
+        const rData = await rRes.json();
+        const bData = await bRes.json();
+        const sData = await sRes.json();
 
-      setRoutes(rData.success ? rData.data : []);     // only use data if success
-      setBuses(bData.success ? bData.data : []);     
-      setSchedules(sData.success ? sData.data : []); 
+        setRoutes(rData.success ? rData.data : []);
+        setBuses(bData.success ? bData.data : []);
+        setSchedules(sData.success ? sData.data : []);
+      } catch (e) {
+        setMsg(e.message || "Load failed");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
-    } catch (e) {
-      setMsg(e.message || "Load failed");
-    } finally {
-      setLoading(false);
-    }
-  })();
-}, []);
+  const routeById = useMemo(() => {
+    const m = new Map();
+    routes.forEach(r => m.set(r.rid, r));
+    return m;
+  }, [routes]);
 
-// Memo maps for quick lookup
-const routeById = useMemo(() => {
-  const m = new Map();
-  routes.forEach(r => m.set(r.rid, r));  // use r.rid as key
-  return m;
-}, [routes]);
+  const busById = useMemo(() => {
+    const m = new Map();
+    buses.forEach(b => m.set(b.busid, b));
+    return m;
+  }, [buses]);
 
-const busById = useMemo(() => {
-  const m = new Map();
-  buses.forEach(b => m.set(b.busid, b));
-  return m;
-}, [buses]);
-
-  // Edit schedule
   const onEdit = (row) => {
     setMode("edit");
     setScheid(row.scheid);
-    setRoutesid(row.routesid);
-    setBusid(row.busid);
+    setRoutesid(String(row.routesid));
+    setBusid(String(row.busid));
     setFare(row.fare);
     const dt = new Date(row.dtime);
     const y = dt.getFullYear();
@@ -92,23 +87,21 @@ const busById = useMemo(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Refresh schedule table
   const refreshSchedules = async () => {
     try {
-      const res = await fetch("/schedule");
+      const res = await fetch("http://localhost:5000/api/admin/schedule");
       const data = await res.json();
-      setSchedules(data?.data || data || []);
+      setSchedules(data?.data || []);
     } catch (e) {
       setMsg(e.message || "Failed to refresh schedules");
     }
   };
 
-  // Create schedule
   const createSchedule = async (e) => {
     e.preventDefault();
     setMsg(null);
 
-    if (!scheid || !routesid || !busid || !fare || !date || !time) {
+    if (!routesid || !busid || !fare || !date || !time) {
       setMsg("Fill all fields.");
       return;
     }
@@ -120,7 +113,6 @@ const busById = useMemo(() => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          scheid: Number(scheid),
           dtime,
           routesid: Number(routesid),
           busid: Number(busid),
@@ -138,7 +130,6 @@ const busById = useMemo(() => {
     }
   };
 
-  // Update schedule
   const updateSchedule = async (e) => {
     e.preventDefault();
     setMsg(null);
@@ -168,7 +159,6 @@ const busById = useMemo(() => {
     }
   };
 
-  // Delete schedule
   const deleteSchedule = async (id) => {
     if (!confirm(`Delete schedule #${id}?`)) return;
     setMsg(null);
@@ -198,18 +188,11 @@ const busById = useMemo(() => {
             {mode === "create" ? "Create Schedule" : `Edit #${scheid}`}
           </h2>
           <form onSubmit={mode === "create" ? createSchedule : updateSchedule} className="space-y-4">
-            {mode === "create" && (
-              <label className="block">
-                <span className={label}>Schedule ID (scheid)</span>
-                <input className={input} type="number" value={scheid} onChange={(e)=>setScheid(e.target.value)} required />
-              </label>
-            )}
-
             <label className="block">
               <span className={label}>Route</span>
-              <select className={input} type="number" value={routesid} onChange={(e)=>setRoutesid(e.target.value)} required>
-                <option value="" className="text-black">Select a route</option>
-                {routes.map(r => <option key={r.rid} value={r.rid} className="text-black">{r.fromlocation} → {r.tolocation} (#{r.rid})</option>)}
+              <select className={input} value={routesid} onChange={(e)=>setRoutesid(e.target.value)} required>
+                <option value="">Select a route</option>
+                {routes.map(r => <option key={r.rid} value={r.rid}>{r.fromlocation} → {r.tolocation}</option>)}
               </select>
             </label>
 
@@ -238,7 +221,7 @@ const busById = useMemo(() => {
             </label>
 
             <div className="flex gap-3">
-              <button type="submit" className="rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-medium px-5 py-2.5">
+              <button type="submit" className="rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-medium px-5 py-2">
                 {mode === "create" ? "Create" : "Save"}
               </button>
               {mode === "edit" && (

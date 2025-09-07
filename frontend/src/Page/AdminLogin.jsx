@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
-  const [adminId, setAdminId] = useState("");
-  const [fullname, setFullname] = useState("");
   const [email, setEmail] = useState("");
   const [passKey, setPassKey] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -21,8 +19,6 @@ export default function AdminLogin() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          adminid: adminId,
-          fullname,
           email,
           PassKey: passKey
         }),
@@ -35,6 +31,8 @@ export default function AdminLogin() {
       }
 
       setMsg("Login successful!");
+      // optionally store user in localStorage/session
+      localStorage.setItem("adminUser", JSON.stringify(data.user));
       navigate("/admin/schedules"); // redirect to admin dashboard
     } catch (err) {
       setMsg(err.message || "Something went wrong");
@@ -56,30 +54,6 @@ export default function AdminLogin() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <label className="block">
-              <span className="text-slate-200 text-sm">Admin ID</span>
-              <input
-                type="number"
-                required
-                value={adminId}
-                onChange={(e) => setAdminId(e.target.value)}
-                className="mt-1 w-full rounded-xl bg-white/5 text-white placeholder-slate-400 border border-white/10 px-4 py-3 outline-none focus:ring-2 focus:ring-cyan-400/50"
-                placeholder="Admin ID"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-slate-200 text-sm">Fullname</span>
-              <input
-                type="text"
-                required
-                value={fullname}
-                onChange={(e) => setFullname(e.target.value)}
-                className="mt-1 w-full rounded-xl bg-white/5 text-white placeholder-slate-400 border border-white/10 px-4 py-3 outline-none focus:ring-2 focus:ring-cyan-400/50"
-                placeholder="Fullname"
-              />
-            </label>
-
             <label className="block">
               <span className="text-slate-200 text-sm">Email</span>
               <input

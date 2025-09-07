@@ -58,50 +58,51 @@ export default function ScheduleSearch() {
       .sort();
   }, [allSchedules, fromLoc]);
 
-  const sameDate = (iso, yyyy_mm_dd) => {
-    try {
-      const d = new Date(iso);
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const da = String(d.getDate()).padStart(2, "0");
-      return `${y}-${m}-${da}` === yyyy_mm_dd;
-    } catch {
-      return false;
+// helper: safer date comparison (ignores timezone shifts)
+const sameDate = (iso, yyyy_mm_dd) => {
+  try {
+    const d = new Date(iso);
+    const localDate = d.toISOString().split("T")[0]; // always yyyy-mm-dd (UTC)
+    return localDate === yyyy_mm_dd;
+  } catch {
+    return false;
+  }
+};
+
+// Search handler: only works if all 3 fields are filled
+const handleSearch = (e) => {
+  e.preventDefault();
+  setMsg(null);
+
+  if (!fromLoc || !toLoc || !date) {
+    setMsg("To use filter, please select From, To, and Date.");
+    return;
+  }
+
+  setLoading(true);
+  try {
+    let filtered = allSchedules.filter((row) =>
+      row.fromlocation.trim().toLowerCase() === fromLoc.trim().toLowerCase() &&
+      row.tolocation.trim().toLowerCase() === toLoc.trim().toLowerCase() &&
+      sameDate(row.dtime, date)
+    );
+
+    if (upcomingOnly) {
+      const now = new Date();
+      filtered = filtered.filter((row) => new Date(row.dtime) >= now);
     }
-  };
 
-  // Search handler: only works if all 3 fields are filled
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setMsg(null);
-
-    if (!fromLoc || !toLoc || !date) {
-      setMsg("To use filter, please select From, To, and Date.");
-      return;
+    setSchedules(filtered);
+    if (filtered.length === 0) {
+      setMsg("No schedules found for your selection.");
     }
+  } catch (err) {
+    setMsg(err.message || "Search failed");
+  } finally {
+    setLoading(false);
+  }
+};
 
-    setLoading(true);
-    try {
-      let filtered = allSchedules.filter(
-        (row) =>
-          row.fromlocation.toLowerCase() === fromLoc.toLowerCase() &&
-          row.tolocation.toLowerCase() === toLoc.toLowerCase() &&
-          sameDate(row.dtime, date)
-      );
-
-      if (upcomingOnly) {
-        const now = new Date();
-        filtered = filtered.filter((row) => new Date(row.dtime) >= now);
-      }
-
-      setSchedules(filtered);
-      if (filtered.length === 0) setMsg("No schedules found for your selection.");
-    } catch (err) {
-      setMsg(err.message || "Search failed");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const clearSearch = () => {
     setFromLoc("");

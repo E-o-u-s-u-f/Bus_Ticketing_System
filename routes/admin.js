@@ -4,34 +4,29 @@ const { sql, poolPromise } = require('../db');
 
 router.post("/login", async (req, res) => {
     try {
-        const { adminid, fullname, email, PassKey } = req.body;
+        const { email, PassKey } = req.body;
 
-        if (!adminid || !fullname || !email || !PassKey) {
+        if (!email || !PassKey) {
             return res.status(400).json({
                 success: false,
-                message: "adminid, fullname, email and password are required"
+                message: "Email and password are required"
             });
         }
 
-        
         const pool = await poolPromise;
         const result = await pool.request()
-            .input("adminid", sql.Int, adminid)
-            .input("fullname", sql.VarChar, fullname)
             .input("email", sql.VarChar, email)
-            .query("SELECT * FROM admin WHERE adminid = @adminid AND fullname = @fullname AND email = @email");
+            .query("SELECT * FROM admin WHERE email = @email");
 
-        
         if (result.recordset.length === 0) {
             return res.status(401).json({
                 success: false,
-                message: "Invalid admin ID, fullname, or email"
+                message: "Admin not found"
             });
         }
 
         const adminUser = result.recordset[0];
 
-        
         if (adminUser.PassKey !== PassKey) {
             return res.status(401).json({
                 success: false,
@@ -39,7 +34,6 @@ router.post("/login", async (req, res) => {
             });
         }
 
-        
         res.status(200).json({
             success: true,
             message: "Login successful",
@@ -62,38 +56,45 @@ router.post("/login", async (req, res) => {
 
 router.post("/register", async (req, res) => {
     try {
-        const { adminid, fullname, email, PassKey } = req.body;
+        const { fullname, email, PassKey } = req.body;
 
-        if (!adminid || !fullname || !email || !PassKey) {
+        if (!fullname || !email || !PassKey) {
             return res.status(400).json({
                 success: false,
-                message: "All fields (adminid, fullname, email, PassKey) are required"
+                message: "All fields (fullname, email, PassKey) are required"
             });
         }
+
         const pool = await poolPromise;
+
+        // check duplicate email
         const check = await pool.request()
-            .input("adminid", sql.Int, adminid)
             .input("email", sql.VarChar, email)
-            .query("SELECT * FROM admin WHERE adminid = @adminid OR email = @email");
+            .query("SELECT * FROM admin WHERE email = @email");
 
         if (check.recordset.length > 0) {
             return res.status(400).json({
                 success: false,
-                message: "Admin ID or Email already exists"
+                message: "Email already exists"
             });
         }
-
-        await pool.request()
-            .input("adminid", sql.Int, adminid)
+        
+        const result = await pool.request()
             .input("fullname", sql.VarChar, fullname)
             .input("email", sql.VarChar, email)
             .input("PassKey", sql.VarChar, PassKey)
-            .query("INSERT INTO admin (adminid, fullname, email, PassKey) VALUES (@adminid, @fullname, @email, @PassKey)");
+            .query("INSERT INTO admin (fullname, email, PassKey) OUTPUT INSERTED.adminid VALUES (@fullname, @email, @PassKey)");
+
+        const newAdmin = result.recordset[0];
 
         res.status(201).json({
             success: true,
             message: "Admin registered successfully",
-            user: { adminid, fullname, email }
+            user: { 
+                adminid: newAdmin.adminid,
+                fullname, 
+                email 
+            }
         });
 
     } catch (error) {
@@ -107,21 +108,22 @@ router.post("/register", async (req, res) => {
 });
 
 router.post("/routes", async (req, res) => {
-   try {
-        const { rid, fromlocation, tolocation } = req.body;
+    try {
+        const { fromlocation, tolocation } = req.body;
 
-        if (!rid || !fromlocation || !tolocation) {
-            return res.status(400).json({ success: false, message: "All fields are required" });
+        if (!fromlocation || !tolocation) {
+            return res.status(400).json({ success: false, message: "From and To locations are required" });
         }
 
         const pool = await poolPromise;
-        await pool.request()
-            .input("rid", sql.Int, rid)
+        const result = await pool.request()
             .input("fromlocation", sql.VarChar, fromlocation)
             .input("tolocation", sql.VarChar, tolocation)
-            .query("INSERT INTO routes (rid, fromlocation, tolocation) VALUES (@rid, @fromlocation, @tolocation)");
+            .query("INSERT INTO routes (fromlocation, tolocation) OUTPUT INSERTED.rid VALUES (@fromlocation, @tolocation)");
 
-        res.status(201).json({ success: true, message: "Route created successfully" });
+        const newRoute = result.recordset[0];
+
+        res.status(201).json({ success: true, message: "Route created successfully", route: newRoute });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: "Server error", error: error.message });
@@ -130,22 +132,23 @@ router.post("/routes", async (req, res) => {
 
 router.post("/bus", async (req, res) => {
     try {
-        const { busid, busnumber, bustype, company, status } = req.body;
+        const { busnumber, bustype, company, status } = req.body;
 
-        if (!busid || !busnumber || !bustype || !status) {
+        if (!busnumber || !bustype || !status) {
             return res.status(400).json({ success: false, message: "Required fields are missing" });
         }
 
         const pool = await poolPromise;
-        await pool.request()
-            .input("busid", sql.Int, busid)
+        const result = await pool.request()
             .input("busnumber", sql.VarChar, busnumber)
             .input("bustype", sql.VarChar, bustype)
             .input("company", sql.VarChar, company)
             .input("status", sql.VarChar, status)
-            .query("INSERT INTO bus (busid, busnumber, bustype, company, status) VALUES (@busid, @busnumber, @bustype, @company, @status)");
+            .query("INSERT INTO bus (busnumber, bustype, company, status) OUTPUT INSERTED.busid VALUES (@busnumber, @bustype, @company, @status)");
 
-        res.status(201).json({ success: true, message: "Bus created successfully" });
+        const newBus = result.recordset[0];
+
+        res.status(201).json({ success: true, message: "Bus created successfully", bus: newBus });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: "Server error", error: error.message });
@@ -154,22 +157,23 @@ router.post("/bus", async (req, res) => {
 
 router.post("/schedule", async (req, res) => {
     try {
-        const { scheid, dtime, routesid, busid, fare } = req.body;
+        const { dtime, routesid, busid, fare } = req.body;
 
-        if (!scheid || !dtime || !routesid || !busid || !fare) {
+        if (!dtime || !routesid || !busid || !fare) {
             return res.status(400).json({ success: false, message: "All fields are required" });
         }
 
         const pool = await poolPromise;
-        await pool.request()
-            .input("scheid", sql.Int, scheid)
+        const result = await pool.request()
             .input("dtime", sql.DateTime, dtime)
             .input("routesid", sql.Int, routesid)
             .input("busid", sql.Int, busid)
             .input("fare", sql.Decimal(10, 2), fare)
-            .query("INSERT INTO schedules (scheid, dtime, routesid, busid, fare) VALUES (@scheid, @dtime, @routesid, @busid, @fare)");
+            .query("INSERT INTO schedules (dtime, routesid, busid, fare) OUTPUT INSERTED.scheid VALUES (@dtime, @routesid, @busid, @fare)");
 
-        res.status(201).json({ success: true, message: "Schedule created successfully" });
+        const newSchedule = result.recordset[0];
+
+        res.status(201).json({ success: true, message: "Schedule created successfully", schedule: newSchedule });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: "Server error", error: error.message });
