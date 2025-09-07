@@ -392,4 +392,75 @@ router.delete("/schedule/:scheid", async (req, res) => {
     }
 });
 
+router.get("/schedule/search", async (req, res) => {
+  try {
+    const { fromlocation, tolocation, date, page = 1, pageSize = 50 } = req.query;
+
+    const pageNum = Math.max(parseInt(page, 10), 1);
+    const size = Math.min(Math.max(parseInt(pageSize, 10), 1), 200);
+    const offset = (pageNum - 1) * size;
+
+    const pool = await poolPromise;
+
+    // Base query with joins
+    let query = `
+      SELECT
+        s.scheid, s.dtime, s.routesid, s.busid, s.fare,
+        r.fromlocation, r.tolocation,
+        b.busnumber, b.bustype, b.company, b.status,
+        d.fullname AS drivername, d.licensenum
+      FROM schedules s
+      JOIN routes r ON s.routesid = r.rid
+      JOIN bus b ON s.busid = b.busid
+      LEFT JOIN driver d ON b.busid = d.assignedbusid
+      WHERE 1=1
+    `;
+
+    const request = pool.request();
+
+    // Apply filters
+    if (fromlocation) {
+      query += " AND r.fromlocation = @fromlocation";
+      request.input("fromlocation", sql.VarChar, fromlocation);
+    }
+
+    if (tolocation) {
+      query += " AND r.tolocation = @tolocation";
+      request.input("tolocation", sql.VarChar, tolocation);
+    }
+
+    if (date) {
+      query += " AND CAST(s.dtime AS DATE) = @date";
+      request.input("date", sql.Date, date);
+    }
+
+    // Count total
+    const countResult = await request.query(`SELECT COUNT(*) AS total FROM (${query}) AS sub`);
+    const total = countResult.recordset[0]?.total || 0;
+
+    // Fetch paginated data
+    query += ` ORDER BY s.dtime ASC OFFSET ${offset} ROWS FETCH NEXT ${size} ROWS ONLY`;
+    const result = await request.query(query);
+
+    return res.status(200).json({
+      success: true,
+      page: pageNum,
+      pageSize: size,
+      total,
+      data: result.recordset,
+    });
+  } catch (error) {
+    console.error("Schedule search error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+});
+
+
+
+
+
 module.exports = router;
