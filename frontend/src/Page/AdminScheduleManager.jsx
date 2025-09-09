@@ -8,7 +8,7 @@ export default function AdminScheduleManager() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState(null);
 
-  // form state
+  // Form state
   const [mode, setMode] = useState("create");
   const [scheid, setScheid] = useState("");
   const [routesid, setRoutesid] = useState("");
@@ -32,11 +32,11 @@ export default function AdminScheduleManager() {
     setTime("");
   };
 
+  // Load routes, buses, schedules
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
-
         const [rRes, bRes, sRes] = await Promise.all([
           fetch("http://localhost:5000/api/admin/routes"),
           fetch("http://localhost:5000/api/admin/bus?status=active"),
@@ -60,13 +60,13 @@ export default function AdminScheduleManager() {
 
   const routeById = useMemo(() => {
     const m = new Map();
-    routes.forEach(r => m.set(r.rid, r));
+    routes.forEach((r) => m.set(r.rid, r));
     return m;
   }, [routes]);
 
   const busById = useMemo(() => {
     const m = new Map();
-    buses.forEach(b => m.set(b.busid, b));
+    buses.forEach((b) => m.set(b.busid, b));
     return m;
   }, [buses]);
 
@@ -133,7 +133,10 @@ export default function AdminScheduleManager() {
   const updateSchedule = async (e) => {
     e.preventDefault();
     setMsg(null);
-    if (!scheid) { setMsg("Pick a schedule to edit."); return; }
+    if (!scheid) {
+      setMsg("Pick a schedule to edit.");
+      return;
+    }
 
     const dtime = dtimeFromParts();
 
@@ -181,6 +184,24 @@ export default function AdminScheduleManager() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-950 to-black p-4 sm:p-8">
+      
+      {/* Top Hover Buttons */}
+      <div className="max-w-7xl mx-auto mb-6 flex flex-wrap gap-3">
+        {[
+          { label: "Schedules", link: "/admin/schedules" },
+          { label: "Routes", link: "/admin/route" },
+          { label: "Buses", link: "/admin/bus" }
+        ].map((btn) => (
+          <a
+            key={btn.label}
+            href={btn.link}
+            className="px-4 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20 transition duration-200"
+          >
+            {btn.label}
+          </a>
+        ))}
+      </div>
+
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Form */}
         <div className={`${card} p-6`}>
@@ -191,16 +212,16 @@ export default function AdminScheduleManager() {
             <label className="block">
               <span className={label}>Route</span>
               <select className={input} value={routesid} onChange={(e)=>setRoutesid(e.target.value)} required>
-                <option value="">Select a route</option>
-                {routes.map(r => <option key={r.rid} value={r.rid}>{r.fromlocation} → {r.tolocation}</option>)}
+                <option className="text-black" value="">Select a route</option>
+                {routes.map(r => <option className="text-black" key={r.rid} value={r.rid}>{r.fromlocation} → {r.tolocation}</option>)}
               </select>
             </label>
 
             <label className="block">
               <span className={label}>Bus</span>
               <select className={input} value={busid} onChange={(e)=>setBusid(e.target.value)} required>
-                <option value="">Select a bus</option>
-                {buses.map(b => <option key={b.busid} value={b.busid}>{b.busnumber} • {b.bustype} ({b.company})</option>)}
+                <option className="text-black" value="">Select a bus</option>
+                {buses.map(b => <option className="text-black" key={b.busid} value={b.busid}>{b.busnumber} • {b.bustype} ({b.company})</option>)}
               </select>
             </label>
 

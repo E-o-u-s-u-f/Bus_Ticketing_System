@@ -134,7 +134,7 @@ router.post("/bus", async (req, res) => {
     try {
         const { busnumber, bustype, company, status } = req.body;
 
-        if (!busnumber || !bustype || !status) {
+        if (!busnumber || !bustype || !company || !status) {
             return res.status(400).json({ success: false, message: "Required fields are missing" });
         }
 
@@ -361,6 +361,13 @@ router.delete("/bus/:busid", async (req, res) => {
         const { busid } = req.params;
 
         const pool = await poolPromise;
+
+        // Step 1: Unassign drivers assigned to this bus
+        await pool.request()
+            .input("busid", sql.Int, busid)
+            .query("UPDATE driver SET assignedbusid = NULL WHERE assignedbusid = @busid");
+
+        // Step 2: Delete the bus
         const result = await pool.request()
             .input("busid", sql.Int, busid)
             .query("DELETE FROM bus WHERE busid = @busid");
@@ -375,6 +382,7 @@ router.delete("/bus/:busid", async (req, res) => {
         res.status(500).json({ success: false, message: "Server error", error: error.message });
     }
 });
+
 
 router.delete("/schedule/:scheid", async (req, res) => {
     try {
