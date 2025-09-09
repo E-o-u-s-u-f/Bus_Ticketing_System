@@ -8,6 +8,7 @@ export default function RouteCreate() {
     toLocation: "",
   });
   const [msg, setMsg] = useState("");
+  const [busyId, setBusyId] = useState(null); // NEW: track which row is deleting
 
   // Load all routes on mount
   useEffect(() => {
@@ -76,17 +77,54 @@ export default function RouteCreate() {
     }
   };
 
-  const card = "rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl";
-  const input = "mt-1 w-full rounded-xl bg-white/5 text-white placeholder-slate-400 border border-white/10 px-4 py-3 outline-none focus:ring-2 focus:ring-cyan-400/50";
+  // NEW: delete handler, minimal UI change
+  const handleDelete = async (r) => {
+    const rid = r.rid ?? r.id ?? r.routeId;
+    if (rid == null) {
+      alert("Missing route id");
+      return;
+    }
+
+    const from = r.fromLocation ?? r.fromlocation ?? "Unknown";
+    const to = r.toLocation ?? r.tolocation ?? "Unknown";
+
+    if (!window.confirm(`Delete route "${from} → ${to}"?`)) return;
+
+    try {
+      setBusyId(rid);
+      const res = await fetch(
+        `http://localhost:5000/api/admin/routes/${encodeURIComponent(rid)}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        alert("Delete failed: " + (data.message || `HTTP ${res.status}`));
+        return;
+      }
+      // refresh list
+      fetchRoutes();
+    } catch (err) {
+      console.error(err);
+      alert("Server error while deleting route.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const card =
+    "rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl";
+  const input =
+    "mt-1 w-full rounded-xl bg-white/5 text-white placeholder-slate-400 border border-white/10 px-4 py-3 outline-none focus:ring-2 focus:ring-cyan-400/50";
   const label = "text-slate-200 text-sm";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-950 to-black p-4 sm:p-8">
-              <div className="max-w-7xl mx-auto mb-6 flex flex-wrap gap-3">
+      <div className="max-w-7xl mx-auto mb-6 flex flex-wrap gap-3">
         {[
           { label: "Schedules", link: "/admin/schedules" },
           { label: "Routes", link: "/admin/route" },
-          { label: "Buses", link: "/admin/bus" }
+          { label: "Buses", link: "/admin/bus" },
         ].map((btn) => (
           <a
             key={btn.label}
@@ -97,6 +135,7 @@ export default function RouteCreate() {
           </a>
         ))}
       </div>
+
       <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Form */}
         <div className={`${card} p-6 lg:col-span-1`}>
@@ -134,7 +173,13 @@ export default function RouteCreate() {
             </button>
 
             {msg && (
-              <div className={`text-sm mt-3 p-2 rounded ${/✅/.test(msg) ? "bg-green-100 text-green-700" : "bg-rose-100 text-rose-700"}`}>
+              <div
+                className={`text-sm mt-3 p-2 rounded ${
+                  /✅/.test(msg)
+                    ? "bg-green-100 text-green-700"
+                    : "bg-rose-100 text-rose-700"
+                }`}
+              >
                 {msg}
               </div>
             )}
@@ -145,7 +190,12 @@ export default function RouteCreate() {
         <div className={`${card} p-6 lg:col-span-2`}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-white text-lg font-medium">Existing Routes</h2>
-            <button onClick={fetchRoutes} className="rounded-xl bg-white/10 text-slate-200 px-3 py-2">Reload</button>
+            <button
+              onClick={fetchRoutes}
+              className="rounded-xl bg-white/10 text-slate-200 px-3 py-2"
+            >
+              Reload
+            </button>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-left">
@@ -154,6 +204,7 @@ export default function RouteCreate() {
                   <th className="py-2 pr-4">#</th>
                   <th className="py-2 pr-4">From</th>
                   <th className="py-2 pr-4">To</th>
+                  <th className="py-2 pr-4">Actions</th> {/* NEW */}
                 </tr>
               </thead>
               <tbody className="text-slate-100/90">
@@ -161,17 +212,34 @@ export default function RouteCreate() {
                   routes.map((r, idx) => {
                     const from = r.fromLocation || r.fromlocation;
                     const to = r.toLocation || r.tolocation;
+                    const rid = r.rid ?? r.id ?? r.routeId;
+
                     return (
-                      <tr key={r.id || `${from}-${to}-${idx}`} className="border-b border-white/5 hover:bg-white/5">
+                      <tr
+                        key={rid || `${from}-${to}-${idx}`}
+                        className="border-b border-white/5 hover:bg-white/5"
+                      >
                         <td className="py-2 pr-4 font-mono">{idx + 1}</td>
                         <td className="py-2 pr-4">{from}</td>
                         <td className="py-2 pr-4">{to}</td>
+                        <td className="py-2 pr-4">
+                          <button
+                            onClick={() => handleDelete(r)}
+                            disabled={busyId === rid}
+                            className="text-rose-400 hover:text-rose-300 disabled:opacity-60"
+                            title="Delete route"
+                          >
+                            {busyId === rid ? "Deleting…" : "Delete"}
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan={3} className="py-4 text-slate-400">No routes yet.</td>
+                    <td colSpan={4} className="py-4 text-slate-400">
+                      No routes yet.
+                    </td>
                   </tr>
                 )}
               </tbody>

@@ -5,6 +5,7 @@ export default function BusManager() {
   const [buses, setBuses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState(null);
+  const [busyId, setBusyId] = useState(null); // NEW: track which bus is deleting
 
   // form state
   const [mode, setMode] = useState("create");
@@ -60,7 +61,9 @@ export default function BusManager() {
     }
 
     // Duplicate bus number check
-    const duplicate = buses.find(b => b.busnumber.toLowerCase() === busnumber.toLowerCase());
+    const duplicate = buses.find(
+      (b) => b.busnumber.toLowerCase() === busnumber.toLowerCase()
+    );
     if (duplicate) {
       setMsg(`Bus number "${busnumber}" already exists.`);
       return;
@@ -73,7 +76,8 @@ export default function BusManager() {
         body: JSON.stringify({ busnumber, bustype, company, status }),
       });
       const data = await res.json();
-      if (!res.ok || data?.success === false) throw new Error(data?.message || "Create failed");
+      if (!res.ok || data?.success === false)
+        throw new Error(data?.message || "Create failed");
 
       setMsg("✅ Bus created.");
       await fetchBuses();
@@ -87,14 +91,21 @@ export default function BusManager() {
     e.preventDefault();
     setMsg(null);
 
-    if (!busid) { setMsg("Pick a bus to edit."); return; }
+    if (!busid) {
+      setMsg("Pick a bus to edit.");
+      return;
+    }
     if (!busnumber || !bustype || !company || !status) {
       setMsg("Fill all fields.");
       return;
     }
 
     // Duplicate check for other buses
-    const duplicate = buses.find(b => b.busnumber.toLowerCase() === busnumber.toLowerCase() && b.busid !== busid);
+    const duplicate = buses.find(
+      (b) =>
+        b.busnumber.toLowerCase() === busnumber.toLowerCase() &&
+        b.busid !== busid
+    );
     if (duplicate) {
       setMsg(`Bus number "${busnumber}" already exists.`);
       return;
@@ -107,7 +118,8 @@ export default function BusManager() {
         body: JSON.stringify({ busnumber, bustype, company, status }),
       });
       const data = await res.json();
-      if (!res.ok || data?.success === false) throw new Error(data?.message || "Update failed");
+      if (!res.ok || data?.success === false)
+        throw new Error(data?.message || "Update failed");
 
       setMsg("✳️ Bus updated.");
       await fetchBuses();
@@ -117,33 +129,49 @@ export default function BusManager() {
     }
   };
 
+  // DELETE bus (uses your cascading backend)
   const deleteBus = async (id) => {
-    if (!confirm(`Delete bus #${id}?`)) return;
+    if (
+      !confirm(
+        `Delete bus #${id}? This will also delete its schedules, linked tickets and payments, and unassign drivers.`
+      )
+    )
+      return;
+
     setMsg(null);
+    setBusyId(id);
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/bus/${id}`, { method: "DELETE" });
+      const res = await fetch(
+        `http://localhost:5000/api/admin/bus/${encodeURIComponent(id)}`,
+        { method: "DELETE" }
+      );
       const data = await res.json();
-      if (!res.ok || data?.success === false) throw new Error(data?.message || "Delete failed");
+      if (!res.ok || data?.success === false)
+        throw new Error(data?.message || `Delete failed (HTTP ${res.status})`);
 
       setMsg(`🗑️ Deleted #${id}.`);
       await fetchBuses();
       if (String(id) === String(busid)) reset();
     } catch (err) {
       setMsg(err.message);
+    } finally {
+      setBusyId(null);
     }
   };
 
-  const card = "rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl";
-  const input = "mt-1 w-full rounded-xl bg-white/5 text-white placeholder-slate-400 border border-white/10 px-4 py-3 outline-none focus:ring-2 focus:ring-cyan-400/50";
+  const card =
+    "rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl";
+  const input =
+    "mt-1 w-full rounded-xl bg-white/5 text-white placeholder-slate-400 border border-white/10 px-4 py-3 outline-none focus:ring-2 focus:ring-cyan-400/50";
   const label = "text-slate-200 text-sm";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-950 to-black p-4 sm:p-8">
-            <div className="max-w-7xl mx-auto mb-6 flex flex-wrap gap-3">
+      <div className="max-w-7xl mx-auto mb-6 flex flex-wrap gap-3">
         {[
           { label: "Schedules", link: "/admin/schedules" },
           { label: "Routes", link: "/admin/route" },
-          { label: "Buses", link: "/admin/bus" }
+          { label: "Buses", link: "/admin/bus" },
         ].map((btn) => (
           <a
             key={btn.label}
@@ -154,44 +182,104 @@ export default function BusManager() {
           </a>
         ))}
       </div>
+
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Form */}
         <div className={`${card} p-6`}>
           <h2 className="text-white text-lg font-medium mb-4">
             {mode === "create" ? "Create Bus" : `Edit #${busid}`}
           </h2>
-          <form onSubmit={mode === "create" ? createBus : updateBus} className="space-y-4">
+          <form
+            onSubmit={mode === "create" ? createBus : updateBus}
+            className="space-y-4"
+          >
             <label className="block">
               <span className={label}>Bus Number</span>
-              <input className={input} value={busnumber} onChange={e => setBusnumber(e.target.value)} required />
+              <input
+                className={input}
+                value={busnumber}
+                onChange={(e) => setBusnumber(e.target.value)}
+                required
+              />
             </label>
             <label className="block">
               <span className={label}>Bus Type</span>
-              <input className={input} value={bustype} onChange={e => setBustype(e.target.value)} required />
+              <select
+                className={input}
+                value={bustype}
+                onChange={(e) => setBustype(e.target.value)}
+                required>
+                    <option value="" disabled>
+                       Select Bus Type
+                    </option>
+                <option className="text-black" value="AC">
+                  AC
+                </option>
+                <option className="text-black" value="Non-AC">
+                  Non-AC
+                </option>
+                </select>
+             
             </label>
             <label className="block">
               <span className={label}>Company</span>
-              <input className={input} value={company} onChange={e => setCompany(e.target.value)} required />
+              <input
+                className={input}
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                required
+              />
             </label>
             <label className="block">
               <span className={label}>Status</span>
-              <select className={input} value={status} onChange={e => setStatus(e.target.value)} required>
-                <option className="text-black" value="Active">Active</option>
-                <option className="text-black" value="Inactive">Inactive</option>
-                <option className="text-black" value="Maintenance">Maintenance</option>
+              <select
+                className={input}
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                required
+              >
+                 <option value="" disabled>
+                       Select Bus Status
+                    </option>
+                <option className="text-black" value="Active">
+                  Active
+                </option>
+                <option className="text-black" value="Inactive">
+                  Inactive
+                </option>
+                <option className="text-black" value="Maintenance">
+                  Maintenance
+                </option>
               </select>
             </label>
 
             <div className="flex gap-3">
-              <button type="submit" className="rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-medium px-5 py-2">
+              <button
+                type="submit"
+                className="rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-medium px-5 py-2"
+              >
                 {mode === "create" ? "Create" : "Save"}
               </button>
               {mode === "edit" && (
-                <button type="button" onClick={reset} className="rounded-xl bg-white/10 text-slate-200 px-4 py-2">Cancel</button>
+                <button
+                  type="button"
+                  onClick={reset}
+                  className="rounded-xl bg-white/10 text-slate-200 px-4 py-2"
+                >
+                  Cancel
+                </button>
               )}
             </div>
 
-            {msg && <div className={`text-sm mt-3 ${/✅|✳️|🗑️/.test(msg) ? "text-emerald-300" : "text-rose-300"}`}>{msg}</div>}
+            {msg && (
+              <div
+                className={`text-sm mt-3 ${
+                  /✅|✳️|🗑️/.test(msg) ? "text-emerald-300" : "text-rose-300"
+                }`}
+              >
+                {msg}
+              </div>
+            )}
           </form>
         </div>
 
@@ -199,7 +287,12 @@ export default function BusManager() {
         <div className={`${card} p-6 lg:col-span-2`}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-white text-lg font-medium">Buses</h2>
-            <button onClick={fetchBuses} className="rounded-xl bg-white/10 text-slate-200 px-3 py-2">Reload</button>
+            <button
+              onClick={fetchBuses}
+              className="rounded-xl bg-white/10 text-slate-200 px-3 py-2"
+            >
+              Reload
+            </button>
           </div>
 
           <div className="overflow-x-auto">
@@ -216,25 +309,54 @@ export default function BusManager() {
               </thead>
               <tbody className="text-slate-100/90">
                 {loading ? (
-                  <tr><td className="py-4" colSpan={6}>Loading…</td></tr>
+                  <tr>
+                    <td className="py-4" colSpan={6}>
+                      Loading…
+                    </td>
+                  </tr>
                 ) : buses.length ? (
-                  buses.map(bus => (
-                    <tr key={bus.busid} className="border-b border-white/5 hover:bg-white/5">
-                      <td className="py-2 pr-4 font-mono">{bus.busid}</td>
-                      <td className="py-2 pr-4">{bus.busnumber}</td>
-                      <td className="py-2 pr-4">{bus.bustype}</td>
-                      <td className="py-2 pr-4">{bus.company}</td>
-                      <td className="py-2 pr-4">{bus.status}</td>
-                      <td className="py-2 pr-4">
-                        <div className="flex gap-2">
-                          <button onClick={() => onEdit(bus)} className="rounded-lg bg-white/10 px-3 py-1.5">Edit</button>
-                          <button onClick={() => deleteBus(bus.busid)} className="rounded-lg bg-rose-600/80 text-white px-3 py-1.5">Delete</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  buses.map((bus) => {
+                    const deleting = busyId === bus.busid;
+                    return (
+                      <tr
+                        key={bus.busid}
+                        className="border-b border-white/5 hover:bg-white/5"
+                      >
+                        <td className="py-2 pr-4 font-mono">{bus.busid}</td>
+                        <td className="py-2 pr-4">{bus.busnumber}</td>
+                        <td className="py-2 pr-4">{bus.bustype}</td>
+                        <td className="py-2 pr-4">{bus.company}</td>
+                        <td className="py-2 pr-4">{bus.status}</td>
+                        <td className="py-2 pr-4">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => onEdit(bus)}
+                              className="rounded-lg bg-white/10 px-3 py-1.5"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => deleteBus(bus.busid)}
+                              disabled={deleting}
+                              className={`rounded-lg ${
+                                deleting
+                                  ? "bg-rose-600/50 text-white cursor-not-allowed"
+                                  : "bg-rose-600/80 text-white hover:bg-rose-600"
+                              } px-3 py-1.5`}
+                            >
+                              {deleting ? "Deleting…" : "Delete"}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
-                  <tr><td className="py-4 text-slate-400" colSpan={6}>No buses yet.</td></tr>
+                  <tr>
+                    <td className="py-4 text-slate-400" colSpan={6}>
+                      No buses yet.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>

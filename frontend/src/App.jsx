@@ -5,6 +5,7 @@ import AdminScheduleManager from "./Page/AdminScheduleManager";
 import ScheduleSearch from "./Page/Schedulesearch";
 import RouteCreate from "./Page/RouteCreate";
 import BusInsert from "./Page/BusInsert";
+import Home from "./Pages/Home";
 
 export default function App() {
   return (
@@ -12,8 +13,9 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           {/* Add a default route for "/" */}
-          <Route path="/" element={<Navigate to="/schedules" replace />} />
-
+          
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route  path="/home" element={<Home />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/register" element={<AdminRegister />} />
           <Route path="/admin/schedules" element={<AdminScheduleManager />} />
