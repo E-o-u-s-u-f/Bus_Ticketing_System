@@ -116,14 +116,23 @@ router.post("/routes", async (req, res) => {
         }
 
         const pool = await poolPromise;
+
+        // Duplicate check
+        const exists = await pool.request()
+            .input("fromlocation", sql.VarChar, fromlocation)
+            .input("tolocation", sql.VarChar, tolocation)
+            .query("SELECT 1 FROM routes WHERE fromlocation = @fromlocation AND tolocation = @tolocation");
+
+        if (exists.recordset.length > 0) {
+            return res.status(409).json({ success: false, message: "Route already exists" });
+        }
+
         const result = await pool.request()
             .input("fromlocation", sql.VarChar, fromlocation)
             .input("tolocation", sql.VarChar, tolocation)
             .query("INSERT INTO routes (fromlocation, tolocation) OUTPUT INSERTED.rid VALUES (@fromlocation, @tolocation)");
 
-        const newRoute = result.recordset[0];
-
-        res.status(201).json({ success: true, message: "Route created successfully", route: newRoute });
+        res.status(201).json({ success: true, message: "Route created successfully", route: result.recordset[0] });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: "Server error", error: error.message });
@@ -139,6 +148,16 @@ router.post("/bus", async (req, res) => {
         }
 
         const pool = await poolPromise;
+
+        // Duplicate check
+        const exists = await pool.request()
+            .input("busnumber", sql.VarChar, busnumber)
+            .query("SELECT 1 FROM bus WHERE busnumber = @busnumber");
+
+        if (exists.recordset.length > 0) {
+            return res.status(409).json({ success: false, message: "Bus with this number already exists" });
+        }
+
         const result = await pool.request()
             .input("busnumber", sql.VarChar, busnumber)
             .input("bustype", sql.VarChar, bustype)
@@ -146,9 +165,7 @@ router.post("/bus", async (req, res) => {
             .input("status", sql.VarChar, status)
             .query("INSERT INTO bus (busnumber, bustype, company, status) OUTPUT INSERTED.busid VALUES (@busnumber, @bustype, @company, @status)");
 
-        const newBus = result.recordset[0];
-
-        res.status(201).json({ success: true, message: "Bus created successfully", bus: newBus });
+        res.status(201).json({ success: true, message: "Bus created successfully", bus: result.recordset[0] });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: "Server error", error: error.message });
@@ -164,6 +181,36 @@ router.post("/schedule", async (req, res) => {
         }
 
         const pool = await poolPromise;
+
+        // ✅ Validate route exists
+        const routeCheck = await pool.request()
+            .input("routesid", sql.Int, routesid)
+            .query("SELECT 1 FROM routes WHERE rid = @routesid");
+
+        if (routeCheck.recordset.length === 0) {
+            return res.status(400).json({ success: false, message: "Invalid route ID" });
+        }
+
+        // ✅ Validate bus exists
+        const busCheck = await pool.request()
+            .input("busid", sql.Int, busid)
+            .query("SELECT 1 FROM bus WHERE busid = @busid");
+
+        if (busCheck.recordset.length === 0) {
+            return res.status(400).json({ success: false, message: "Invalid bus ID" });
+        }
+
+        // ✅ Prevent duplicate schedules (same bus, same time)
+        const exists = await pool.request()
+            .input("busid", sql.Int, busid)
+            .input("dtime", sql.DateTime, dtime)
+            .query("SELECT 1 FROM schedules WHERE busid = @busid AND dtime = @dtime");
+
+        if (exists.recordset.length > 0) {
+            return res.status(409).json({ success: false, message: "Schedule already exists for this bus at this time" });
+        }
+
+        // ✅ Insert new schedule
         const result = await pool.request()
             .input("dtime", sql.DateTime, dtime)
             .input("routesid", sql.Int, routesid)
@@ -171,14 +218,13 @@ router.post("/schedule", async (req, res) => {
             .input("fare", sql.Decimal(10, 2), fare)
             .query("INSERT INTO schedules (dtime, routesid, busid, fare) OUTPUT INSERTED.scheid VALUES (@dtime, @routesid, @busid, @fare)");
 
-        const newSchedule = result.recordset[0];
-
-        res.status(201).json({ success: true, message: "Schedule created successfully", schedule: newSchedule });
+        res.status(201).json({ success: true, message: "Schedule created successfully", schedule: result.recordset[0] });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: "Server error", error: error.message });
     }
 });
+
 
 router.post("/generate-tickets", async (req, res) => {
     try {
@@ -256,19 +302,27 @@ router.put("/routes/:rid", async (req, res) => {
         const { rid } = req.params;
         const { fromlocation, tolocation } = req.body;
 
-        if (!fromlocation || !tolocation) {
-            return res.status(400).json({ success: false, message: "Both fromlocation and tolocation are required" });
+        if (!fromlocation && !tolocation) {
+            return res.status(400).json({ success: false, message: "At least one field (fromlocation or tolocation) is required" });
         }
 
         const pool = await poolPromise;
+        let updateQuery = "UPDATE routes SET ";
+        const updates = [];
+
+        if (fromlocation) updates.push("fromlocation = @fromlocation");
+        if (tolocation) updates.push("tolocation = @tolocation");
+
+        updateQuery += updates.join(", ") + " WHERE rid = @rid";
+
         const result = await pool.request()
             .input("rid", sql.Int, rid)
-            .input("fromlocation", sql.VarChar, fromlocation)
-            .input("tolocation", sql.VarChar, tolocation)
-            .query("UPDATE routes SET fromlocation = @fromlocation, tolocation = @tolocation WHERE rid = @rid");
+            .input("fromlocation", sql.VarChar, fromlocation || null)
+            .input("tolocation", sql.VarChar, tolocation || null)
+            .query(updateQuery);
 
         if (result.rowsAffected[0] === 0) {
-            return res.status(404).json({ success: false, message: "Route not found" });
+            return res.status(404).json({ success: false, message: "Route not found or no changes made" });
         }
 
         res.status(200).json({ success: true, message: "Route updated successfully" });
@@ -339,8 +393,37 @@ router.put("/schedule/:scheid", async (req, res) => {
 router.delete("/routes/:rid", async (req, res) => {
     try {
         const { rid } = req.params;
-
         const pool = await poolPromise;
+
+        // Step 1: Delete payments related to tickets of schedules on this route
+        await pool.request()
+            .input("rid", sql.Int, rid)
+            .query(`
+                DELETE FROM payment
+                WHERE ticketid IN (
+                    SELECT t.ticket_id
+                    FROM tickets t
+                    JOIN schedules s ON t.scheid = s.scheid
+                    WHERE s.routesid = @rid
+                )
+            `);
+
+        // Step 2: Delete tickets of schedules on this route
+        await pool.request()
+            .input("rid", sql.Int, rid)
+            .query(`
+                DELETE FROM tickets
+                WHERE scheid IN (
+                    SELECT scheid FROM schedules WHERE routesid = @rid
+                )
+            `);
+
+        // Step 3: Delete schedules on this route
+        await pool.request()
+            .input("rid", sql.Int, rid)
+            .query("DELETE FROM schedules WHERE routesid = @rid");
+
+        // Step 4: Delete the route
         const result = await pool.request()
             .input("rid", sql.Int, rid)
             .query("DELETE FROM routes WHERE rid = @rid");
@@ -359,15 +442,42 @@ router.delete("/routes/:rid", async (req, res) => {
 router.delete("/bus/:busid", async (req, res) => {
     try {
         const { busid } = req.params;
-
         const pool = await poolPromise;
 
-        // Step 1: Unassign drivers assigned to this bus
+        // Step 1: Delete payments linked to tickets of this bus
+        await pool.request()
+            .input("busid", sql.Int, busid)
+            .query(`
+                DELETE FROM payment
+                WHERE ticketid IN (
+                    SELECT t.ticket_id
+                    FROM tickets t
+                    JOIN schedules s ON t.scheid = s.scheid
+                    WHERE s.busid = @busid
+                )
+            `);
+
+        // Step 2: Delete tickets linked to schedules of this bus
+        await pool.request()
+            .input("busid", sql.Int, busid)
+            .query(`
+                DELETE FROM tickets
+                WHERE scheid IN (
+                    SELECT scheid FROM schedules WHERE busid = @busid
+                )
+            `);
+
+        // Step 3: Delete schedules linked to this bus
+        await pool.request()
+            .input("busid", sql.Int, busid)
+            .query("DELETE FROM schedules WHERE busid = @busid");
+
+        // Step 4: Unassign drivers assigned to this bus
         await pool.request()
             .input("busid", sql.Int, busid)
             .query("UPDATE driver SET assignedbusid = NULL WHERE assignedbusid = @busid");
 
-        // Step 2: Delete the bus
+        // Step 5: Delete the bus
         const result = await pool.request()
             .input("busid", sql.Int, busid)
             .query("DELETE FROM bus WHERE busid = @busid");
@@ -383,12 +493,27 @@ router.delete("/bus/:busid", async (req, res) => {
     }
 });
 
-
 router.delete("/schedule/:scheid", async (req, res) => {
     try {
         const { scheid } = req.params;
-
         const pool = await poolPromise;
+
+        // Step 1: Delete payments related to tickets of this schedule
+        await pool.request()
+            .input("scheid", sql.Int, scheid)
+            .query(`
+                DELETE FROM payment 
+                WHERE ticketid IN (
+                    SELECT ticket_id FROM tickets WHERE scheid = @scheid
+                )
+            `);
+
+        // Step 2: Delete tickets related to this schedule
+        await pool.request()
+            .input("scheid", sql.Int, scheid)
+            .query("DELETE FROM tickets WHERE scheid = @scheid");
+
+        // Step 3: Delete the schedule
         const result = await pool.request()
             .input("scheid", sql.Int, scheid)
             .query("DELETE FROM schedules WHERE scheid = @scheid");
@@ -470,9 +595,6 @@ router.get("/schedule/search", async (req, res) => {
     });
   }
 });
-
-
-
 
 
 module.exports = router;
