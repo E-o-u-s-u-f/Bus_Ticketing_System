@@ -5,7 +5,7 @@ import AdminScheduleManager from "./Page/AdminScheduleManager";
 import ScheduleSearch from "./Page/Schedulesearch";
 import RouteCreate from "./Page/RouteCreate";
 import BusInsert from "./Page/BusInsert";
-import Home from "./Pages/Home";
+import Home from "./Page/Home";
 
 export default function App() {
   return (

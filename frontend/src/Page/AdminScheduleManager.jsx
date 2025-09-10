@@ -178,6 +178,33 @@ export default function AdminScheduleManager() {
     }
   };
 
+  // ✅ Updated: Generate tickets uses new API behavior (no seatCount)
+  const generateTickets = async (scheid) => {
+    setMsg(null);
+    try {
+      const res = await fetch("http://localhost:5000/api/admin/generate-tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scheid }),
+      });
+
+      const data = await res.json();
+
+      // If backend returns success false or non-2xx, throw to catch block
+      if (!res.ok || data?.success === false) {
+        // prefer backend message when present
+        throw new Error(data?.message || "Ticket generation failed");
+      }
+
+      // success
+      setMsg(`🎟️ Tickets generated for schedule #${scheid}`);
+      // keep UI same — but refresh schedules list so admin sees latest data
+      await refreshSchedules();
+    } catch (err) {
+      setMsg(err.message || "Ticket generation failed");
+    }
+  };
+
   const card = "rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl";
   const input = "mt-1 w-full rounded-xl bg-white/5 text-white placeholder-slate-400 border border-white/10 px-4 py-3 outline-none focus:ring-2 focus:ring-cyan-400/50";
   const label = "text-slate-200 text-sm";
@@ -250,7 +277,7 @@ export default function AdminScheduleManager() {
               )}
             </div>
 
-            {msg && <div className={`text-sm mt-3 ${/✅|✳️|🗑️/.test(msg) ? "text-emerald-300" : "text-rose-300"}`}>{msg}</div>}
+            {msg && <div className={`text-sm mt-3 ${/✅|✳️|🗑️|🎟️/.test(msg) ? "text-emerald-300" : "text-rose-300"}`}>{msg}</div>}
           </form>
         </div>
 
@@ -292,6 +319,7 @@ export default function AdminScheduleManager() {
                           <div className="flex gap-2">
                             <button onClick={() => onEdit(row)} className="rounded-lg bg-white/10 px-3 py-1.5">Edit</button>
                             <button onClick={() => deleteSchedule(row.scheid)} className="rounded-lg bg-rose-600/80 text-white px-3 py-1.5">Delete</button>
+                            <button onClick={() => generateTickets(row.scheid)} className="rounded-lg bg-emerald-600/80 text-white px-3 py-1.5">Generate</button>
                           </div>
                         </td>
                       </tr>
@@ -303,6 +331,12 @@ export default function AdminScheduleManager() {
               </tbody>
             </table>
           </div>
+
+          {msg && (
+            <div className={`text-sm mt-3 ${/✅|✳️|🗑️|🎟️/.test(msg) ? "text-emerald-300" : "text-rose-300"}`}>
+              {msg}
+            </div>
+          )}
         </div>
       </div>
     </div>

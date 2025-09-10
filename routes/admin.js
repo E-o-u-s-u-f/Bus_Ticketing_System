@@ -225,41 +225,76 @@ router.post("/schedule", async (req, res) => {
     }
 });
 
-
 router.post("/generate-tickets", async (req, res) => {
     try {
-        const { scheid, seatCount } = req.body;
+        const { scheid } = req.body;
+
+        if (!scheid) {
+            return res.status(400).json({ success: false, message: "Schedule ID is required" });
+        }
 
         const pool = await poolPromise;
 
-        const schedule = await pool.request()
+        // ✅ check if schedule exists
+        const scheduleResult = await pool.request()
             .input("scheid", sql.Int, scheid)
             .query("SELECT fare FROM schedules WHERE scheid = @scheid");
 
-        if (schedule.recordset.length === 0) {
+        if (scheduleResult.recordset.length === 0) {
             return res.status(400).json({ success: false, message: "Invalid schedule ID" });
         }
 
-        const fare = schedule.recordset[0].fare;
+        const fare = scheduleResult.recordset[0].fare;
 
-        for (let i = 1; i <= seatCount; i++) {
+        // ✅ check if tickets already generated
+        const existingTickets = await pool.request()
+            .input("scheid", sql.Int, scheid)
+            .query("SELECT COUNT(*) AS count FROM tickets WHERE scheid = @scheid");
+
+        if (existingTickets.recordset[0].count > 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Tickets have already been generated for this schedule"
+            });
+        }
+
+        // ✅ generate seat numbers: A1–A10, B1–B10, C1–C10, D1–D10
+        const seatCols = ["A", "B", "C", "D"];
+        const seatNumbers = [];
+
+        for (let col of seatCols) {
+            for (let i = 1; i <= 10; i++) {
+                seatNumbers.push(`${col}${i}`);
+            }
+        }
+
+        // ✅ insert tickets
+        for (let seat of seatNumbers) {
             await pool.request()
                 .input("scheid", sql.Int, scheid)
-                .input("seatnum", sql.VarChar, "A" + i)
-                .input("fare", sql.Decimal(10,2), fare)
+                .input("seatnum", sql.VarChar, seat)
+                .input("fare", sql.Decimal(10, 2), fare)
                 .query(`
                     INSERT INTO tickets (userid, scheid, seatnum, btime, tamount, is_sold)
                     VALUES (NULL, @scheid, @seatnum, GETDATE(), @fare, 0)
                 `);
         }
 
-        res.status(201).json({ success: true, message: "Tickets generated successfully" });
+        res.status(201).json({
+            success: true,
+            message: `✅ 40 tickets generated successfully for schedule ${scheid}`
+        });
 
     } catch (error) {
         console.error("Ticket generation error:", error);
-        res.status(500).json({ success: false, message: "Server error", error: error.message });
+        res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message
+        });
     }
 });
+
 
 router.get("/routes", async (req, res) => {
     try {
