@@ -6,7 +6,7 @@ import ScheduleSearch from "./Page/Schedulesearch";
 import RouteCreate from "./Page/RouteCreate";
 import BusInsert from "./Page/BusInsert";
 import Home from "./Page/Home";
-
+import Form from "./Page/Form";
 export default function App() {
   return (
     <div className="bg-black min-h-screen text-white">
@@ -21,7 +21,7 @@ export default function App() {
           <Route path="/admin/schedules" element={<AdminScheduleManager />} />
           <Route path="/admin/route" element= {<RouteCreate />}/>
           <Route path="/admin/bus" element= {<BusInsert />}/>
-          
+          <Route path="/form" element= {<Form />}/>
           <Route path="/schedules" element={<ScheduleSearch />} />
         </Routes>
       </BrowserRouter>
