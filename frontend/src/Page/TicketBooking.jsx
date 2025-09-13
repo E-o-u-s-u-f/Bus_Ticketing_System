@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import BusSeatPlan from "./BusSeatPlan";
 
 export default function TicketBooking({ scheId }) {
   const [tickets, setTickets] = useState([]);
@@ -37,31 +38,19 @@ export default function TicketBooking({ scheId }) {
       return;
     }
     // TODO: integrate booking API
-    alert(`Seat ${selectedSeat} booked for ${userName}`);
+    alert('Seat ${selectedSeat} booked for ${userName}');
   };
-
+  console.log(selectedSeat);
+  console.log(tickets);
   return (
     <div className="mt-4 border-t border-white/20 pt-4 flex">
       {loading ? <div>Loading seats…</div> :
         msg ? <div className="text-rose-400">{msg}</div> :
           <>
             {/* Bus Seats Grid */}
-            <div className="grid grid-cols-4 gap-2 mb-4">
-              {tickets.map((seat, i) => {
-                // add aisle gap after 2nd column
-                const style = (i % 4 === 1) ? { marginRight: "0.5rem" } : {};
-                return (
-                  <button
-                    key={seat.ticket_id}
-                    style={style}
-                    className={`p-2 rounded-lg text-sm font-medium ${seat.is_sold ? "bg-red-600 cursor-not-allowed" : selectedSeat === seat.ticket_id ? "bg-cyan-500" : "bg-green-600 hover:bg-green-500"}`}
-                    onClick={() => handleSeatClick(seat)}
-                  >
-                    {seat.seatnum}
-                  </button>
-                );
-              })}
-            </div>
+            <BusSeatPlan  tickets={tickets}
+            selectedSeat={selectedSeat}
+            onSeatClick={handleSeatClick}/>
 
             {/* User Details Form */}
             <form onSubmit={handleSubmit} className="space-y-3">
