@@ -28,19 +28,20 @@ router.get("/", async (req, res) => {
         const request = pool.request();
 
         if (fromlocation) {
-            query += " AND r.fromlocation = @fromlocation";
-            request.input("fromlocation", sql.VarChar, fromlocation);
-        }
+  query += " AND LOWER(LTRIM(RTRIM(r.fromlocation))) = LOWER(LTRIM(RTRIM(@fromlocation)))";
+  request.input("fromlocation", sql.VarChar, fromlocation);
+}
 
-        if (tolocation) {
-            query += " AND r.tolocation = @tolocation";
-            request.input("tolocation", sql.VarChar, tolocation);
-        }
+if (tolocation) {
+  query += " AND LOWER(LTRIM(RTRIM(r.tolocation))) = LOWER(LTRIM(RTRIM(@tolocation)))";
+  request.input("tolocation", sql.VarChar, tolocation);
+}
+
 
         if (date) {
-            query += " AND CAST(s.dtime AS DATE) = @date";
-            request.input("date", sql.Date, date);
-        }
+  query += " AND s.dtime >= @date AND s.dtime < DATEADD(DAY, 1, @date)";
+  request.input("date", sql.Date, date);
+}
 
         const result = await request.query(query);
 
