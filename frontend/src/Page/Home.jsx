@@ -1,17 +1,17 @@
 import React, { useState } from "react";
 import { Button } from "../Components/ui/stateful-button";
 import { useNavigate } from "react-router-dom";
-import bus2 from "../assets/bus2.png"; 
+import bus2 from "../assets/bus2.png";
 import About1 from "./About1";
- export default function  Home() {
+export default function Home() {
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
-    const handleClick = () => {
+  const handleClick = () => {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve();
         navigate("/schedules"); // 👈 change path as needed
-      }, 4000); // simulates API delay before navigating
+      }, 500); // simulates API delay before navigating
     });
   };
   return (
@@ -21,12 +21,11 @@ import About1 from "./About1";
           <div className="flex items-center justify-between">
             {/* Logo */}
             <div className="shrink-0">
-              <a href="#" className="flex">
-                <img
-                  className="w-auto h-9"
-                  src="https://landingfoliocom.imgix.net/store/collection/dusk/images/logo.svg"
-                  alt="Logo"
-                />
+              <a
+                href="#"
+                className="flex items-center text-white text-2xl font-bold"
+              >
+                JanBahon
               </a>
             </div>
 
@@ -73,8 +72,7 @@ import About1 from "./About1";
             </div>
 
             {/* Desktop Nav */}
-            <nav className="hidden ml-10 mr-auto space-x-10 lg:ml-20 lg:space-x-12 md:flex md:items-center md:justify-start">
-            </nav>
+            <nav className="hidden ml-10 mr-auto space-x-10 lg:ml-20 lg:space-x-12 md:flex md:items-center md:justify-start"></nav>
 
             {/* Desktop CTA */}
             <div className="relative hidden md:inline-flex group">
@@ -97,8 +95,7 @@ import About1 from "./About1";
                   <a
                     href="/admin/login"
                     className="relative inline-flex items-center justify-center w-full px-6 py-2 text-base font-normal text-white bg-black border border-transparent rounded-full"
-                  >
-                  </a>
+                  ></a>
                 </div>
               </div>
             </nav>
@@ -115,9 +112,13 @@ import About1 from "./About1";
                 Your Journey, Our Responsibility – JanBahon
               </h1>
               <p className="mt-4 text-lg font-normal text-gray-400 sm:mt-8">
-                Seamless routes, reliable schedules, and a smarter way to travel. With JanBahon, commuting becomes faster, safer, and more convenient
+                Seamless routes, reliable schedules, and a smarter way to
+                travel. With JanBahon, commuting becomes faster, safer, and more
+                convenient
               </p>
-                <Button onClick={handleClick} className="w-[15rem] bg-gray-800 ">Get Your Seat Pack</Button>
+              <Button onClick={handleClick} className="w-[15rem] bg-gray-800 ">
+                Get Your Seat Pack
+              </Button>
             </div>
 
             <div className="relative">
@@ -169,5 +170,4 @@ import About1 from "./About1";
       <About1 />
     </div>
   );
-};
-
+}

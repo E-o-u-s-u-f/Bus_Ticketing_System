@@ -125,6 +125,7 @@ export default function RouteCreate() {
           { label: "Schedules", link: "/admin/schedules" },
           { label: "Routes", link: "/admin/route" },
           { label: "Buses", link: "/admin/bus" },
+          { label: "Drivers", link: "/admin/drivers" },
         ].map((btn) => (
           <a
             key={btn.label}
@@ -134,6 +135,14 @@ export default function RouteCreate() {
             {btn.label}
           </a>
         ))}
+
+        {/* Return button on the right */}
+        <a
+          href="/Home"
+          className="ml-auto px-4 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20 transition duration-200"
+        >
+          ⬅️ Return Home
+        </a>
       </div>
 
       <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -5,8 +5,6 @@ export default function TicketBooking({ scheId }) {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState(null);
-
-  // MULTI-SELECT seats (array of ticket_ids)
   const [selectedSeats, setSelectedSeats] = useState([]);
 
   useEffect(() => {
@@ -31,7 +29,9 @@ export default function TicketBooking({ scheId }) {
     setSelectedSeats((prev) =>
       prev.includes(seat.ticket_id)
         ? prev.filter((id) => id !== seat.ticket_id)
-        : [...prev, seat.ticket_id]
+        : prev.length < 4
+        ? [...prev, seat.ticket_id]
+        : prev
     );
   };
 
@@ -41,40 +41,28 @@ export default function TicketBooking({ scheId }) {
   );
 
   return (
-    <div className="mt-4 border-t border-white/20 pt-4 flex gap-6">
+    <div className="mt-4 border-t border-white/20 pt-4 flex gap-6 items-stretch">
       {loading ? (
         <div>Loading seats…</div>
       ) : msg ? (
         <div className="text-rose-400">{msg}</div>
       ) : (
         <>
-          {/* LEFT: Bus Seats Grid */}
-          <BusSeatPlan
-            tickets={tickets}
-            selectedSeats={selectedSeats}
-            onSeatToggle={handleSeatToggle}
-          />
+          <div className="flex-1 flex items-stretch">
+            <div className="flex-1 bg-white/5 rounded-2xl border border-white/10 p-4 flex justify-center items-center">
+              <BusSeatPlan
+                tickets={tickets}
+                selectedSeats={selectedSeats}
+                onSeatToggle={handleSeatToggle}
+              />
+            </div>
+          </div>
 
-          {/* RIGHT: Passenger Form (keeps the flex layout) */}
-          <div className="flex-1 max-w-md">
+          <div className="flex-1 max-w-lg">
             <PassengerForm
-              selectedSeats={selectedSeats}
+              selectedSeatInfos={selectedSeatInfos}
               onError={(m) => setMsg(m)}
             />
-
-            {/* helper text */}
-            {selectedSeats.length ? (
-              <p className="mt-2 text-xs text-slate-300">
-                Selected:{" "}
-                <span className="font-mono">
-                  {selectedSeatInfos.map((s) => s.seatnum).join(", ")}
-                </span>
-              </p>
-            ) : (
-              <p className="mt-2 text-xs text-slate-400">
-                Tip: click multiple free seats to auto-fill the Ticket IDs.
-              </p>
-            )}
           </div>
         </>
       )}
@@ -82,64 +70,55 @@ export default function TicketBooking({ scheId }) {
   );
 }
 
-/* ---------------- Passenger Form (merges selected seats → ticket_ids) ---------------- */
+/* ---------------- Passenger Form ---------------- */
 
-function PassengerForm({ selectedSeats = [], onError }) {
+function PassengerForm({ selectedSeatInfos = [], onError }) {
   const [form, setForm] = useState({
     fullName: "",
     email: "",
     phone: "",
     nid: "",
     address: "",
-    ticket_ids: [""],
   });
-
-  // Whenever selectedSeats changes, merge them into ticket_ids (selected first, deduped)
-  useEffect(() => {
-    if (!Array.isArray(selectedSeats)) return;
-    setForm((prev) => {
-      const sel = selectedSeats.map(String);
-      const existing = (prev.ticket_ids || []).map(String);
-      // Keep any manual entries that aren't in selected
-      const manualRest = existing.filter((id) => id && !sel.includes(id));
-      const merged = [...sel, ...manualRest];
-      return { ...prev, ticket_ids: merged.length ? merged : [""] };
-    });
-  }, [selectedSeats]);
+  const [errors, setErrors] = useState({});
 
   const input =
     "mt-1 w-full rounded-xl bg-white/5 text-white placeholder-slate-400 border border-white/10 px-4 py-3 outline-none focus:ring-2 focus:ring-cyan-400/50";
   const label = "text-slate-200 text-sm";
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleTicketChange = (index, value) => {
-    const newTickets = [...form.ticket_ids];
-    newTickets[index] = value;
-    setForm({ ...form, ticket_ids: newTickets });
-  };
-
-  const addTicketField = () =>
-    setForm({ ...form, ticket_ids: [...form.ticket_ids, ""] });
-
-  const removeTicketField = (index) => {
-    const newTickets = form.ticket_ids.filter((_, i) => i !== index);
-    setForm({ ...form, ticket_ids: newTickets.length ? newTickets : [""] });
+  const validate = () => {
+    const newErr = {};
+    if (!form.fullName.trim() || form.fullName.trim().length < 3)
+      newErr.fullName = "Please enter a valid full name";
+    if (!/^[\w.-]+@gmail\.com$/.test(form.email))
+      newErr.email = "Must be a valid Gmail address";
+    if (!/^\d{11}$/.test(form.phone))
+      newErr.phone = "Phone must be exactly 11 digits";
+    if (!/^\d{5,}$/.test(form.nid))
+      newErr.nid = "NID must be at least 5 digits";
+    if (!form.address.trim() || form.address.trim().length < 10)
+      newErr.address = "Please enter a full address (min 10 chars)";
+    if (!selectedSeatInfos.length)
+      newErr.seats = "Select at least 1 seat";
+    setErrors(newErr);
+    return Object.keys(newErr).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const requiredOk =
-      form.fullName && form.email && form.phone && form.ticket_ids.filter(Boolean).length;
-    if (!requiredOk) {
-      onError?.("Please fill required fields and add at least one Ticket ID.");
-      return;
-    }
+    if (!validate()) return;
+
     try {
       const res = await fetch("http://localhost:5000/payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          ticket_ids: selectedSeatInfos.map((s) => s.ticket_id),
+        }),
       });
       const result = await res.json();
       if (result?.url) {
@@ -153,21 +132,49 @@ function PassengerForm({ selectedSeats = [], onError }) {
   };
 
   return (
-    <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
+    <div className="bg-white/5 p-6 rounded-2xl border border-white/10 h-full flex flex-col">
       <h2 className="text-white text-lg font-medium mb-4">Passenger Form</h2>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <label className="block">
+
+      {/* Selected seats preview */}
+      <div className="mb-4">
+        <p className="text-sm text-slate-300 mb-2">Selected Seats</p>
+        {selectedSeatInfos.length ? (
+          <div className="grid grid-cols-2 gap-2">
+            {selectedSeatInfos.map((s) => (
+              <div
+                key={s.ticket_id}
+                className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-400/30 text-slate-100 text-sm"
+              >
+                <div className="font-semibold">Seat {s.seatnum}</div>
+               
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-400">
+            No seats selected (max 4 allowed)
+          </p>
+        )}
+        {errors.seats && (
+          <p className="text-rose-400 text-xs mt-1">{errors.seats}</p>
+        )}
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-3 flex-1">
+        <div>
           <span className={label}>Full Name</span>
           <input
             className={input}
             name="fullName"
             value={form.fullName}
             onChange={handleChange}
-            placeholder="e.g. Tahmid Khan"
           />
-        </label>
+          {errors.fullName && (
+            <p className="text-rose-400 text-xs">{errors.fullName}</p>
+          )}
+        </div>
 
-        <label className="block">
+        <div>
           <span className={label}>Email</span>
           <input
             type="email"
@@ -175,83 +182,58 @@ function PassengerForm({ selectedSeats = [], onError }) {
             name="email"
             value={form.email}
             onChange={handleChange}
-            placeholder="you@example.com"
           />
-        </label>
+          {errors.email && (
+            <p className="text-rose-400 text-xs">{errors.email}</p>
+          )}
+        </div>
 
-        <label className="block">
+        <div>
           <span className={label}>Phone</span>
           <input
             className={input}
             name="phone"
             value={form.phone}
             onChange={handleChange}
-            placeholder="01xxxxxxxxx"
           />
-        </label>
+          {errors.phone && (
+            <p className="text-rose-400 text-xs">{errors.phone}</p>
+          )}
+        </div>
 
-        <label className="block">
+        <div>
           <span className={label}>NID</span>
           <input
             className={input}
             name="nid"
             value={form.nid}
             onChange={handleChange}
-            placeholder="National ID"
           />
-        </label>
+          {errors.nid && (
+            <p className="text-rose-400 text-xs">{errors.nid}</p>
+          )}
+        </div>
 
-        <label className="block">
+        <div>
           <span className={label}>Address</span>
           <textarea
             className={input}
             name="address"
             value={form.address}
             onChange={handleChange}
-            placeholder="Street, City, Postcode"
           />
-        </label>
-
-        {/* Multiple Ticket IDs */}
-        <div className="space-y-3">
-          <span className={label}>Ticket IDs</span>
-          {form.ticket_ids.map((ticket, index) => (
-            <div key={index} className="flex gap-2">
-              <input
-                className={input + " flex-1"}
-                value={ticket}
-                onChange={(e) => handleTicketChange(index, e.target.value)}
-                placeholder={`Ticket ID #${index + 1}`}
-              />
-              {form.ticket_ids.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeTicketField(index)}
-                  className="px-3 py-2 bg-rose-500 text-white rounded-xl"
-                  title="Remove"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={addTicketField}
-            className="px-4 py-2 text-sm text-white bg-emerald-500 rounded-xl"
-          >
-            + Add Ticket
-          </button>
+          {errors.address && (
+            <p className="text-rose-400 text-xs">{errors.address}</p>
+          )}
         </div>
 
         <button
           type="submit"
-          className="rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-medium px-5 py-2"
+          className="mt-2 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-medium px-5 py-2 w-full"
         >
-          Save
+          Go to Payment
         </button>
       </form>
     </div>
   );
 }
-

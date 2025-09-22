@@ -612,13 +612,19 @@ const About1 = () => {
                   Why Choose Us
                 </span>
                 <h2 className="mb-5 text-3xl font-bold text-dark dark:text-white sm:text-[40px]/[48px]">
-                  Make your customers happy by giving services.
+                  Book Your Bus Tickets the Smart Way
                 </h2>
                 <p className="mb-5 text-base text-body-color dark:text-dark-6">
-                  JanBahon is more than a bus management system — it’s a promise to make everyday travel easier. We work to provide accurate schedules, transparent pricing, and real-time updates so that commuters spend less time waiting and more time moving.
+                  <strong>JanBahon</strong> is designed to make your journey
+                  planning quick, easy, and stress-free. With just a few clicks,
+                  you can browse routes, pick your favorite seats, and book
+                  tickets instantly from anywhere.
                 </p>
                 <p className="mb-8 text-base text-body-color dark:text-dark-6">
-                 Born out of a vision to modernize traditional transport, JanBahon combines technology with transport management. From smart route planning to digital payments and live bus tracking, we are building the future of bus transportation for our cities
+                  Our secure payment system, real-time seat availability, and
+                  instant e-ticket ensure that you spend less time worrying and
+                  more time looking forward to your trip. Travel made simple —
+                  that’s our promise.
                 </p>
               </div>
             </div>

@@ -6,7 +6,9 @@ import ScheduleSearch from "./Page/Schedulesearch";
 import RouteCreate from "./Page/RouteCreate";
 import BusInsert from "./Page/BusInsert";
 import Home from "./Page/Home";
-
+import PaymentSuccess from "./Page/PaymentSuccess";
+import PaymentFail from "./Page/PaymentFail";
+import AdminDriver from "./Page/AdminDriver";
 export default function App() {
   return (
     <div className="bg-black min-h-screen text-white">
@@ -19,9 +21,11 @@ export default function App() {
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/register" element={<AdminRegister />} />
           <Route path="/admin/schedules" element={<AdminScheduleManager />} />
+          <Route path="/admin/drivers" element={<AdminDriver />} />
           <Route path="/admin/route" element= {<RouteCreate />}/>
           <Route path="/admin/bus" element= {<BusInsert />}/>
-          
+          <Route path="/payment-success" element={<PaymentSuccess />} />
+          <Route path="/payment-fail" element={<PaymentFail />} />
           <Route path="/schedules" element={<ScheduleSearch />} />
         </Routes>
       </BrowserRouter>

@@ -2,8 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { sql, poolPromise } = require('../db');
 
-// GET /api/schedules
-// Optional query params: fromlocation, tolocation, date (YYYY-MM-DD), upcomingOnly=true|false
 router.get("/", async (req, res) => {
   try {
     const pool = await poolPromise;

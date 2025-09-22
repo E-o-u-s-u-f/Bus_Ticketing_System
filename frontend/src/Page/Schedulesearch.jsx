@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import TicketBooking from "./TicketBooking";
 
 export default function ScheduleSearch() {
@@ -13,8 +14,9 @@ export default function ScheduleSearch() {
   const [date, setDate] = useState("");
   const [upcomingOnly, setUpcomingOnly] = useState(true);
 
-  // Open dropdown
   const [openSchedule, setOpenSchedule] = useState(null);
+
+  const navigate = useNavigate();
 
   // --- Helpers for "no past days" rule ---
   const ymdLocal = (val) => {
@@ -43,10 +45,8 @@ export default function ScheduleSearch() {
         const data = await res.json();
         const rows = data?.data || [];
 
-        // Keep all rows for dropdowns
         setAllSchedules(rows);
 
-        // Show only today+future in list
         const notPastDay = rows.filter((r) => ymdLocal(r.dtime) >= todayStr);
         setSchedules(notPastDay);
       } catch (err) {
@@ -84,7 +84,6 @@ export default function ScheduleSearch() {
       return;
     }
 
-    // Enforce: no schedules before today (local)
     if (date < todayStr) {
       setSchedules([]);
       setMsg("No schedules found.");
@@ -127,6 +126,18 @@ export default function ScheduleSearch() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-950 to-black p-4 sm:p-8">
       <div className="max-w-5xl mx-auto">
+
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-white tracking-wide">Schedules</h1>
+          <button
+            onClick={() => navigate("/home")}
+            className="mt-4 sm:mt-0 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-medium hover:opacity-90 shadow-lg"
+          >
+            ⬅ Return to Home
+          </button>
+        </div>
+
         {/* Search Form */}
         <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl p-6 mb-6">
           <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-4 gap-4">

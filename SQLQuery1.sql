@@ -9,7 +9,11 @@ create table users (
     phone varchar(20) not null,
     urole varchar(50) not null
 );
-
+ALTER TABLE users
+ADD nid VARCHAR(50),
+    address VARCHAR(200);
+select * from users
+select * from bus;
 insert into users (fullname, email, phone, urole)
 values 
     ('john doe', 'john.doe@example.com', '123-456-7890', 'admin'),
@@ -38,22 +42,26 @@ create table bus (
     company varchar(100),
     status varchar(20) not null
 );
-
+select * from bus;
 insert into bus (busnumber, bustype, company, status)
 values
     ('dhk-101', 'ac', 'green line', 'active'),
     ('syl-202', 'non-ac', 'shohoz', 'active'),
     ('raj-303', 'ac', 'hanif', 'maintenance');
 
-
+INSERT INTO bus (busid, busnumber, bustype, company, status)
+VALUES
+    (3001, 'dhk-101', 'AC', 'Green Line', 'Active'),
+    (3003, 'raj-303', 'AC', 'Hanif', 'Maintenance');
+select * from bus
+select * from driver
 --drop table driver
 create table driver (
     driverid int identity(4001,1) primary key,
     fullname varchar(100) not null,
     phone varchar(20),
     licensenum varchar(50) not null,
-    assignedbusid int,
-    foreign key (assignedbusid) references bus(busid)
+    assignedbusid int
 );
 
 insert into driver (fullname, phone, licensenum, assignedbusid)
@@ -92,7 +100,6 @@ values
     ('2025-08-22 10:00:00', 102, 3002, 450.00),
     ('2025-08-23 09:00:00', 103, 3003, 600.00);
 
-select * from schedules;
 --drop table tickets
 create table tickets(
     ticket_id int identity(7001,1) primary key,
@@ -119,6 +126,13 @@ create table payment (
     foreign key (ticketid) references tickets(ticket_id),
     foreign key (userid) references users(userid)
 );
+ALTER TABLE payment
+ADD tran_id VARCHAR(40);
+CREATE TABLE payment_tickets (
+    payid INT NOT NULL,
+    ticketid INT NOT NULL,
+    PRIMARY KEY (payid, ticketid)
+);
 
 -- insert tickets
 insert into tickets (userid, scheid, seatnum, btime, tamount, is_sold)
@@ -138,6 +152,13 @@ values
 (7004, 2, '2025-08-23 14:50:00', 800.00, 'card', 'paid'),
 (7005, 3, '2025-08-24 08:05:00', 450.00, 'bkash', 'paid');
 select * from users;
+select * from tickets;
+select * from payment
+select * from payment_tickets
+select * from driver
+UPDATE tickets
+SET is_sold = 1
+WHERE scheid = 6014 AND seatnum IN ('A3', 'A4');
 
 	SELECT 
 		s.scheid,
@@ -153,4 +174,60 @@ select * from users;
 	JOIN routes r ON s.routesid = r.rid
 	JOIN bus b ON s.busid = b.busid
 	LEFT JOIN driver d ON b.busid = d.assignedbusid;
+	select * from schedules;
+	select * from tickets
+	SELECT * FROM bus
+	select * from payment
+CREATE TABLE user_audit (
+    auditid INT IDENTITY(1,1) PRIMARY KEY,
+    userid INT,
+    fullname VARCHAR(100),
+    email VARCHAR(100),
+    phone VARCHAR(20),
+    urole VARCHAR(50),
+    created_at DATETIME DEFAULT GETDATE()
+);
 
+-- Track added admins
+CREATE TABLE admin_audit (
+    auditid INT IDENTITY(1,1) PRIMARY KEY,
+    adminid INT,
+    fullname VARCHAR(100),
+    email VARCHAR(100),
+    created_at DATETIME DEFAULT GETDATE()
+);
+select * from user_audit
+CREATE TRIGGER trg_after_user_insert
+ON users
+AFTER INSERT
+AS
+BEGIN
+    INSERT INTO user_audit (userid, fullname, email, phone, urole)
+    SELECT userid, fullname, email, phone, urole
+    FROM inserted;
+
+    PRINT 'New user added and logged in user_audit';
+END;
+
+CREATE TRIGGER trg_after_admin_insert
+ON admin
+AFTER INSERT
+AS
+BEGIN
+    INSERT INTO admin_audit (adminid, fullname, email)
+    SELECT adminid, fullname, email
+    FROM inserted;
+
+    PRINT 'New admin added and logged in admin_audit';
+END;
+
+CREATE TABLE payment_pending (
+    tran_id VARCHAR(40) PRIMARY KEY,
+    fullName VARCHAR(100),
+    email VARCHAR(100),
+    phone VARCHAR(20),
+    nid VARCHAR(50),
+    address VARCHAR(200),
+    ticket_ids NVARCHAR(MAX),
+    totalAmount DECIMAL(10,2)
+);

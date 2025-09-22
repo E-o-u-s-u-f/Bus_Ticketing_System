@@ -295,7 +295,6 @@ router.post("/generate-tickets", async (req, res) => {
     }
 });
 
-
 router.get("/routes", async (req, res) => {
     try {
         const pool = await poolPromise;
